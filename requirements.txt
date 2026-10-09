@@ -1,0 +1,37 @@
+# PDF Processing
+PyMuPDF>=1.24.0
+pytesseract>=0.3.10
+Pillow>=10.0.0
+
+# Text Processing
+langdetect>=1.0.9
+tiktoken>=0.7.0
+regex>=2024.4.16
+
+# Embeddings (open-source)
+sentence-transformers>=3.0.0
+
+# Vector Database (open-source)
+chromadb>=0.5.0
+
+# Reranking
+# Uses sentence-transformers cross-encoder
+
+# LLM - Ollama
+ollama>=0.3.0
+
+# Web Framework
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+
+# Configuration
+python-dotenv>=1.0.0
+pydantic-settings>=2.0.0
+
+# Monitoring / Metrics
+prometheus-client>=0.21.0
+
+# Utilities
+tqdm>=4.66.0
+numpy>=1.26.0

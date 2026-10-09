@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RAG Chatbot — PDF Knowledge Base</title>
+    <meta name="description" content="Retrieval-Augmented Generation chatbot that answers questions from your PDF knowledge base with source citations." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+    <!-- ─── Ambient Background ─────────────────────────────────── -->
+    <div class="ambient-bg">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+
+    <!-- ─── Main Layout ────────────────────────────────────────── -->
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="logo-title">RAG Chatbot</h1>
+                        <p class="logo-subtitle">PDF Knowledge Base</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Panel -->
+            <div class="sidebar-section">
+                <h3 class="section-label">System Status</h3>
+                <div class="status-grid" id="statusGrid">
+                    <div class="status-card" id="ollamaStatus">
+                        <div class="status-indicator loading"></div>
+                        <div class="status-info">
+                            <span class="status-label">Ollama</span>
+                            <span class="status-value" id="ollamaStatusText">Checking…</span>
+                        </div>
+                    </div>
+                    <div class="status-card" id="vectorDbStatus">
+                        <div class="status-indicator loading"></div>
+                        <div class="status-info">
+                            <span class="status-label">Vector DB</span>
+                            <span class="status-value" id="vectorDbStatusText">Checking…</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Documents Panel -->
+            <div class="sidebar-section">
+                <h3 class="section-label">Documents</h3>
+                <div class="doc-stats" id="docStats">
+                    <div class="stat-row">
+                        <span class="stat-label">PDFs loaded</span>
+                        <span class="stat-value" id="pdfCount">—</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Chunks indexed</span>
+                        <span class="stat-value" id="chunkCount">—</span>
+                    </div>
+                </div>
+
+                <!-- Upload -->
+                <div class="upload-area" id="uploadArea">
+                    <input type="file" id="fileInput" accept=".pdf" hidden />
+                    <button class="btn btn-upload" id="uploadBtn" onclick="document.getElementById('fileInput').click()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                        </svg>
+                        Upload PDF
+                    </button>
+                    <button class="btn btn-ingest" id="ingestBtn" onclick="ingestAll()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        Ingest All PDFs
+                    </button>
+                </div>
+
+                <!-- Document List -->
+                <div class="doc-list" id="docList"></div>
+            </div>
+
+            <!-- Metrics Panel -->
+            <div class="sidebar-section">
+                <h3 class="section-label">Performance</h3>
+                <div class="metrics-grid" id="metricsGrid">
+                    <div class="metric-card">
+                        <span class="metric-value" id="metricQueries">0</span>
+                        <span class="metric-label">Queries</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-value" id="metricAvgLatency">—</span>
+                        <span class="metric-label">Avg Latency</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-value" id="metricP95">—</span>
+                        <span class="metric-label">P95 Latency</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-value" id="metricAvgChunks">—</span>
+                        <span class="metric-label">Avg Chunks</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="main-content">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <button class="btn-icon sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+                    </svg>
+                </button>
+                <div class="top-bar-info">
+                    <span class="model-badge" id="modelBadge">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                        </svg>
+                        <span id="modelName">Loading…</span>
+                    </span>
+                </div>
+            </header>
+
+            <!-- Chat Messages -->
+            <div class="chat-container" id="chatContainer">
+                <!-- Welcome Message -->
+                <div class="welcome-screen" id="welcomeScreen">
+                    <div class="welcome-icon">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none">
+                            <path d="M12 2L2 7l10 5 10-5-10-5z" fill="url(#grad1)" opacity="0.3"/>
+                            <path d="M2 17l10 5 10-5" stroke="url(#grad2)" stroke-width="2" stroke-linecap="round"/>
+                            <path d="M2 12l10 5 10-5" stroke="url(#grad2)" stroke-width="2" stroke-linecap="round"/>
+                            <path d="M12 2L2 7l10 5 10-5-10-5z" stroke="url(#grad2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <defs>
+                                <linearGradient id="grad1" x1="2" y1="2" x2="22" y2="22">
+                                    <stop offset="0%" stop-color="#6366f1"/>
+                                    <stop offset="100%" stop-color="#8b5cf6"/>
+                                </linearGradient>
+                                <linearGradient id="grad2" x1="2" y1="2" x2="22" y2="22">
+                                    <stop offset="0%" stop-color="#818cf8"/>
+                                    <stop offset="100%" stop-color="#a78bfa"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                    <h2 class="welcome-title">Ask anything about your documents</h2>
+                    <p class="welcome-subtitle">
+                        Upload PDFs and ask questions. The RAG pipeline retrieves relevant passages
+                        and generates accurate, cited answers.
+                    </p>
+                    <div class="welcome-hints">
+                        <button class="hint-chip" onclick="askQuestion('What are the main topics covered in the documents?')">
+                            📚 Main topics overview
+                        </button>
+                        <button class="hint-chip" onclick="askQuestion('Summarize the key findings across all documents')">
+                            🔍 Key findings
+                        </button>
+                        <button class="hint-chip" onclick="askQuestion('What are the most important recommendations?')">
+                            💡 Recommendations
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Messages will be inserted here -->
+                <div class="messages" id="messages"></div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="input-area">
+                <div class="input-wrapper">
+                    <textarea
+                        id="queryInput"
+                        placeholder="Ask a question about your documents…"
+                        rows="1"
+                        autofocus
+                    ></textarea>
+                    <button class="btn-send" id="sendBtn" onclick="sendQuery()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="input-footer">
+                    <span class="footer-note">Answers include source citations from your PDF knowledge base</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Chunk Detail Modal -->
+    <div class="modal-overlay" id="chunkModal" onclick="closeModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3 id="modalTitle">Chunk Details</h3>
+                <button class="btn-icon" onclick="document.getElementById('chunkModal').classList.remove('active')">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+        </div>
+    </div>
+
+    <!-- Upload Progress Toast -->
+    <div class="toast" id="toast">
+        <div class="toast-content">
+            <div class="toast-spinner"></div>
+            <span id="toastText">Processing…</span>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
